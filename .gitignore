@@ -13,3 +13,6 @@ __pycache__/
 
 # environment 
 env/
+
+# zip files
+*.zip
