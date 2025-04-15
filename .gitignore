@@ -1,0 +1,15 @@
+# Test directory
+test/
+
+# pycache
+__pycache__/
+
+# Environment variables
+.env
+
+# Jupyter Notebook
+*.ipynb_checkpoints
+*.ipynb
+
+# environment 
+env/

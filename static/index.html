@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Interface</title>
+    <!-- Include Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Include Highlight.js for code syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 70vh;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+        
+        .user-message {
+            background-color: #e3f2fd;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+        
+        .ai-message {
+            background-color: #f1f1f1;
+            align-self: flex-start;
+        }
+        
+        .chat-input {
+            display: flex;
+            padding: 10px;
+            background-color: white;
+            border-top: 1px solid #ddd;
+        }
+        
+        #user-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        
+        #send-button {
+            padding: 10px 15px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        #send-button:hover {
+            background-color: #45a049;
+        }
+        
+        #send-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .thinking {
+            color: #888;
+            font-style: italic;
+        }
+        
+        /* Markdown specific styles */
+        .ai-message {
+            line-height: 1.5;
+        }
+        
+        .ai-message h1, .ai-message h2, .ai-message h3 {
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+        
+        .ai-message p {
+            margin-bottom: 1em;
+        }
+        
+        .ai-message ul, .ai-message ol {
+            margin-left: 1.5em;
+            margin-bottom: 1em;
+        }
+        
+        .ai-message code {
+            background-color: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        .ai-message pre {
+            background-color: #f8f8f8;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin-bottom: 1em;
+        }
+        
+        .ai-message pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+        
+        .ai-message blockquote {
+            border-left: 4px solid #ddd;
+            padding-left: 10px;
+            margin-left: 0;
+            color: #666;
+        }
+        
+        .ai-message table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 1em;
+        }
+        
+        .ai-message th, .ai-message td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .ai-message th {
+            background-color: #f2f2f2;
+        }
+        
+        /* Typing indicator */
+        .typing-indicator {
+            display: inline-block;
+        }
+        
+        .typing-indicator span {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #999;
+            margin: 0 2px;
+            animation: typing 1.5s infinite ease-in-out;
+        }
+        
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        /* Status message */
+        .status-message {
+            padding: 5px 10px;
+            border-radius: 4px;
+            background-color: #f0f0f0;
+            color: #666;
+            margin: 10px 0;
+            font-size: 0.9em;
+            text-align: center;
+        }
+
+        .generating-response {
+            display: inline-block;
+            color: #666;
+            animation: flash 1.5s infinite ease-in-out;
+        }
+
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Chat Interface</h1>
+    
+    <div class="chat-container">
+        <div class="chat-messages" id="chat-messages">
+            <div class="message ai-message">Hi! How can I help you today?</div>
+        </div>
+        
+        <div class="chat-input">
+            <input type="text" id="user-input" placeholder="Type your message here..." autocomplete="off">
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatMessages = document.getElementById('chat-messages');
+            const userInput = document.getElementById('user-input');
+            const sendButton = document.getElementById('send-button');
+            
+            // API endpoint URL and authentication
+            const apiUrl = 'http://localhost:8000/api/session/v2/send-message';
+            const sessionId = "ed219bd5-7944-43d6-b344-c664a4e18a7a";
+            const bearerToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7InVzZXJJRCI6IjU5MDM2NCIsInBob25lTnVtYmVyIjoiKzYyODIyNjE3MDA2NjIiLCJwYXRpZW50SWQiOiIwNDI2MTcwNC03MzM2LWNkNDEtNjQxOS03NzBjMTEyMGM3ZTYifSwiaWF0IjoxNzQ0NjIxODM4LCJleHAiOjE3NTMyNjE4Mzh9.K_LhvE_Y5RPkaW2YSyoBISrFTeFm229i8YWb7nqOE4A";
+            const locale = "id";
+            const lat = -6.224933557684562;
+            const lng = 106.59795036630074;
+            
+            let isProcessing = false;
+            
+            // Configure marked.js
+            marked.setOptions({
+                highlight: function(code, lang) {
+                    if (lang && hljs.getLanguage(lang)) {
+                        return hljs.highlight(code, { language: lang }).value;
+                    }
+                    return hljs.highlightAuto(code).value;
+                },
+                breaks: true,
+                gfm: true
+            });
+            
+            // Function to create a typing indicator
+            function createTypingIndicator() {
+                const indicator = document.createElement('div');
+                indicator.className = 'generating-response';
+                indicator.textContent = 'Generating response...';
+                return indicator;
+            }
+            
+            // Function to add a user message
+            function addUserMessage(text) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message user-message';
+                messageDiv.textContent = text;
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                return messageDiv;
+            }
+            
+            // Function to create an AI message container
+            function createAIMessageContainer() {
+                const container = document.createElement('div');
+                container.className = 'message ai-message';
+                chatMessages.appendChild(container);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                return container;
+            }
+            
+            // Function to add status message
+            function addStatusMessage(text) {
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'status-message';
+                statusDiv.textContent = text;
+                chatMessages.appendChild(statusDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Auto-remove after 5 seconds
+                setTimeout(() => {
+                    statusDiv.style.opacity = '0';
+                    statusDiv.style.transition = 'opacity 0.5s';
+                    setTimeout(() => statusDiv.remove(), 500);
+                }, 5000);
+            }
+            
+            // Debounce function to limit how often we render markdown
+            function debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
+            
+            // Optimized markdown rendering using DocumentFragment
+            function renderMarkdown(container, markdown) {
+                // Create a document fragment to build the DOM elements
+                const fragment = document.createRange().createContextualFragment(marked.parse(markdown));
+                
+                // Clear the container and append the new content
+                container.innerHTML = '';
+                container.appendChild(fragment);
+                
+                // Apply syntax highlighting to code blocks
+                container.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            }
+            
+            // Function to send message and handle streaming response
+            async function sendMessage() {
+                const message = userInput.value.trim();
+                if (message === '' || isProcessing) return;
+                
+                isProcessing = true;
+                sendButton.disabled = true;
+                userInput.disabled = true;
+                
+                // Add user message
+                addUserMessage(message);
+                
+                // Clear input field
+                userInput.value = '';
+                
+                // Create AI message container with typing indicator
+                const aiMessageContainer = createAIMessageContainer();
+                const typingIndicator = createTypingIndicator();
+                aiMessageContainer.appendChild(typingIndicator);
+                
+                // Create a content div that will be updated with markdown
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'markdown-content';
+                
+                // Variable to accumulate markdown
+                let streamStarted = false; // Add this flag to track if streaming has started
+                let accumulatedMarkdown = '';
+                let lastRenderTime = Date.now();
+                const renderInterval = 100;
+                
+                // Debounced render function
+                const debouncedRender = debounce((markdown) => {
+                    renderMarkdown(contentDiv, markdown);
+                }, renderInterval);
+                
+                try {
+                    // Send request to API with custom headers and payload
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + bearerToken,
+                            'sessionId': sessionId,
+                            'locale': locale
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            lat: lat,
+                            lng: lng
+                        }),
+                        mode: 'cors',
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    // Process the streaming response
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    
+                    // Process the stream
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        
+                        if (done) {
+                            if (typingIndicator && typingIndicator.parentNode) {
+                                aiMessageContainer.removeChild(typingIndicator);
+                            }
+                            aiMessageContainer.appendChild(contentDiv);
+                            renderMarkdown(contentDiv, accumulatedMarkdown);
+                            break;
+                        }
+                        
+                        const chunk = decoder.decode(value, { stream: true });
+                        const lines = chunk.split('\n');
+                        
+                        let newContent = false;
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const jsonData = JSON.parse(line.substring(6));
+                                    if (jsonData.message_chunk) {
+                                        // If this is the first chunk, switch from loading to content
+                                        if (!streamStarted) {
+                                            streamStarted = true;
+                                            if (typingIndicator && typingIndicator.parentNode) {
+                                                aiMessageContainer.removeChild(typingIndicator);
+                                            }
+                                            aiMessageContainer.appendChild(contentDiv);
+                                        }
+                                        accumulatedMarkdown += jsonData.message_chunk;
+                                        newContent = true;
+                                    }
+                                    // Only update loading text if streaming hasn't started
+                                    else if (!streamStarted && typingIndicator) {
+                                        typingIndicator.textContent = jsonData.data.intermediate_message || 'Generating response...';
+                                    }
+                                } catch (e) {
+                                    console.error('Error parsing SSE data:', e);
+                                }
+                            }
+                        }
+                        
+                        if (newContent) {
+                            // Only render if sufficient time has passed
+                            const now = Date.now();
+                            if (now - lastRenderTime >= renderInterval) {
+                                renderMarkdown(contentDiv, accumulatedMarkdown);
+                                lastRenderTime = now;
+                            } else {
+                                debouncedRender(accumulatedMarkdown);
+                            }
+                        }
+                        
+                        // Scroll to bottom with each update
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    aiMessageContainer.innerHTML = 'Sorry, an error occurred while processing your request.';
+                    addStatusMessage('Connection error: ' + error.message);
+                } finally {
+                    isProcessing = false;
+                    sendButton.disabled = false;
+                    userInput.disabled = false;
+                    userInput.focus();
+                }
+            }
+            
+            // Event listeners
+            sendButton.addEventListener('click', sendMessage);
+            
+            userInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            
+            // Add welcome message with markdown formatting
+            const welcomeContainer = document.querySelector('.ai-message');
+            // renderMarkdown(welcomeContainer, '# Welcome to the Chat Interface\n\nThis chat interface connects to your custom API endpoint with the required headers and payload.\n\n**API Details**:\n- Endpoint: `/api/session/send-message`\n- Authentication: Bearer Token\n- Session ID: Configured\n\nType a message to start chatting!');
+            
+            // Focus input field
+            userInput.focus();
+        });
+    </script>
+</body>
+</html>
