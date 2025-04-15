@@ -24,6 +24,10 @@ python main.py
 ```
 
 # Using the apps
-Don't forget to change the sessionId and the bearerToken in `index.html` (manually unfortunately)
+- Head to `http://localhost:8005/static/index.html` to access the UI
+
+Note:
+- Change the apiUrl in `index.html` to the url of the chatbot endpoint
+- Don't forget to change the sessionId and the bearerToken in `index.html` (manually unfortunately)
 
 note: get the session id by hitting `/get-session-id` with Postman for example
